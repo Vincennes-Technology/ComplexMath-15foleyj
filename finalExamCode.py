@@ -1,17 +1,5 @@
 #!/usr/bin/python
-# dframe
-""" This is a program that will calculate the impedance based on the schematic:
-https://sites.google.com/site/reflectiondetection/vinu/FinalExamCircuit2.png
-
-The goal:  Calculate the impedance, from A to B, once a second, displayed on the LCD.
-Assume that the pushbutton is inactive, both connections are made, and the capacitor
-is connected in parallel with the inductor.
-
-When the pushbutton is activated, remove the capacitor from the impedance calculation. still
-posting the impedance once a second.  When the pushbutton is inactivated, recalculate the
-impedance and post it once a second, again like above.
-The script is based on code from the following RaspPi.tv site:
-"""
+# Josie Foley
 # script by Alex Eames http://RasPi.tv/
 # http://raspi.tv/2013/how-to-use-interrupts-with-python-on-the-raspberry-pi-and-rpi-gpio
 
@@ -42,20 +30,69 @@ def check4edge(pin):
         GPIO.remove_event_detect(pin)
         GPIO.wait_for_edge(pin, GPIO.RISING, bouncetime=200)
         return True
+def magnitude(number):
+    absolute = math.sqrt((number[0] * number[0]) + (number[1] * number[1]))
+    return absolute
+def complex_division(complex_a, complex_b):
+    real_answer = complex_a[0] / complex_b[0]
+    imag_answer = complex_a[1] - complex_b[1]
+    return real_answer, imag_answer
 
+def complex_multiplication(complex_a, complex_b):
+    real_answer = complex_a[0] * complex_b[0]
+    imag_answer = complex_a[1] + complex_b[1]
+    return real_answer, imag_answer
 
 try:
     capConnected = True
     while True:
-        # this is where you solve the circuit.  Please post the impedance between point A
-        # and B, every time the button is pressed or released. If the button is being pressed
-        # the impedance without the capacitance.
+
+    frequency = input('\nWhat is the frequency of the source? (in Hz): ')
+    voltage = input('\nWhat is the voltage of the source? (in RMS): ')
+    resistor_value = input('\nWhat value of resistor is present? (in Ohms): ')
+    inductor_value = input('\nWhat is the value of your inductor? (in Henrys): ')
+    inductor_resistance = input('\nWhat is the resistance of the wiring of the inductor? (in Ohms): ')
+    capacitor_value = input('\nWhat is the value of your capacitor? (in Farads): ')
+
+# Some basic calculations
+    omega = 2 * pi * frequency
+    total_resistance = inductor_resistance + resistor_value
+    inductance = omega * inductor_value
+    mag_inductance = (inductor_resistance, inductance)
+    mag_inductance = magnitude(mag_inductance)
+    capacitance = (1/(omega * capacitor_value))
+    impedance = total_resistance, (inductance + -capacitance)
+    mag_impedance = magnitude(impedance)
+    current = float(voltage) / float(mag_impedance)
+    v_r = current * resistor_value
+    v_l = current * inductance
+    v_c = current * capacitance
+
+# Phase Angle
+    if inductance > capacitance:
+        argument_send = impedance[1] / impedance[0]
+    else:
+        if capacitance > inductance:
+            argument_send = impedance[0] / impedance[1]
+        else:
+            argument_send = 0
+    phase_radians = math.atan(argument_send)
+    phase_angle = phase_radians * 180/pi
         if capConnected:
             # calculate the full magnitude and phase of the parallel circuit here
+            if total_impedance[1] > 0:
+                print('Current will be lagging voltage by %f degrees' % total_impedance[1])
+            if total_impedance[1] < 0:
+                print('Current will be leading voltage by %f degrees' % total_impedance[1])
+            if total_impedance[1] == 0:
+                print('Voltage and current will be in phase!')
+    #print('Total current will be %f A' % total_current)
             magnitude = phase = 1
 
         else:
             # here is where the magnitude and phase of just the inductor, since the cap is disconnected by the switch
+            mag_inductance = (inductor_resistance, inductance)
+            mag_inductance = magnitude(mag_inductance)
             magnitude = phase = 2
             capConnected = True
 
